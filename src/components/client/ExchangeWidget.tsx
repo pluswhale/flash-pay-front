@@ -1,10 +1,13 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ArrowUpDown, Timer, Sparkles, Shield, Zap, ChevronRight, TrendingUp } from 'lucide-react'
+import { ArrowUpDown, Timer, Sparkles, Shield, Zap, TrendingUp } from 'lucide-react'
 import { CurrencySelector } from './CurrencySelector'
+import { QuickAuthModal } from './QuickAuthModal'
 import { Button } from '../shared/Button'
 import { useCountdown } from '../../hooks/useCountdown'
 import { useDealStore, getRate, CURRENCIES_LIST } from '../../store/dealStore'
+import { useAuthStore } from '../../store/authStore'
+import { useUIStore } from '../../store/uiStore'
 import { useTranslation } from '../../hooks/useTranslation'
 import { cn } from '../shared/cn'
 
@@ -15,23 +18,34 @@ interface ExchangeWidgetProps {
 export function ExchangeWidget({ onDealCreated }: ExchangeWidgetProps) {
   const { t } = useTranslation()
   const createDeal = useDealStore((s) => s.createDeal)
+  const { user } = useAuthStore()
+  const { pendingCorridor, setPendingCorridor } = useUIStore()
 
   const [sendCurrency, setSendCurrency] = useState('USDT')
   const [receiveCurrency, setReceiveCurrency] = useState('RUB')
   const [sendAmount, setSendAmount] = useState('1000')
   const [receiveAmount, setReceiveAmount] = useState('')
-  const [showForm, setShowForm] = useState(false)
-  const [name, setName] = useState('')
-  const [email, setEmail] = useState('')
-  const [wallet, setWallet] = useState('')
-  const [isCreating, setIsCreating] = useState(false)
   const [receiveAnimKey, setReceiveAnimKey] = useState(0)
+  const [isCreating, setIsCreating] = useState(false)
+  const [showQuickAuth, setShowQuickAuth] = useState(false)
   const prevReceive = useRef('')
 
   const rate = getRate(sendCurrency, receiveCurrency)
   const { display, progress, reset } = useCountdown(900)
   const sendCurr = CURRENCIES_LIST.find((c) => c.code === sendCurrency)
   const receiveCurr = CURRENCIES_LIST.find((c) => c.code === receiveCurrency)
+
+  // Apply pending corridor selection from the Corridors block
+  useEffect(() => {
+    if (!pendingCorridor) return
+    const { from, to } = pendingCorridor
+    // Only apply if both currencies exist in our list
+    const fromExists = CURRENCIES_LIST.some((c) => c.code === from)
+    const toExists = CURRENCIES_LIST.some((c) => c.code === to)
+    if (fromExists) setSendCurrency(from)
+    if (toExists) setReceiveCurrency(to)
+    setPendingCorridor(null)
+  }, [pendingCorridor, setPendingCorridor])
 
   useEffect(() => {
     const amt = parseFloat(sendAmount) || 0
@@ -50,25 +64,40 @@ export function ExchangeWidget({ onDealCreated }: ExchangeWidgetProps) {
     setReceiveAmount(sendAmount)
   }
 
-  const handleCreate = async () => {
-    if (!name || !email) return
+  const executeDeal = async (clientName: string) => {
     setIsCreating(true)
     await new Promise((r) => setTimeout(r, 500))
     const id = createDeal({
-      clientName: name,
-      clientEmail: email,
+      clientName,
+      clientEmail: user?.login ?? '',
       sendCurrency,
       sendAmount: parseFloat(sendAmount) || 0,
       receiveCurrency,
       receiveAmount: parseFloat(receiveAmount) || 0,
       rate,
-      paymentMethod: wallet || 'Card',
+      paymentMethod: 'Card',
     })
     setIsCreating(false)
     onDealCreated(id)
   }
 
-  const isFormValid = name.trim().length > 1 && email.includes('@')
+  const handleCreate = async () => {
+    if (user) {
+      // Logged in — create immediately
+      await executeDeal(user.name)
+    } else {
+      // Not logged in — show quick auth, then create
+      setShowQuickAuth(true)
+    }
+  }
+
+  const handleAuthSuccess = async () => {
+    setShowQuickAuth(false)
+    // Wait for store to update, then use fresh user
+    await new Promise((r) => setTimeout(r, 50))
+    const freshUser = useAuthStore.getState().user
+    if (freshUser) await executeDeal(freshUser.name)
+  }
 
   return (
     <div className="space-y-4 w-full">
@@ -78,7 +107,7 @@ export function ExchangeWidget({ onDealCreated }: ExchangeWidgetProps) {
         'bg-blue-50 border border-blue-200',
         'dark:bg-surface-2 dark:border-[#5B8CFF]/15',
       )}>
-        <div className="flex items-center gap-2 text-xs text-blue-600  dark:text-[#7AAEFF]">
+        <div className="flex items-center gap-2 text-xs text-blue-600 dark:text-[#7AAEFF]">
           <Timer size={12} />
           <span className="font-medium">{t.exchange.rateLock}</span>
         </div>
@@ -130,12 +159,7 @@ export function ExchangeWidget({ onDealCreated }: ExchangeWidgetProps) {
             <span className="opacity-40">{sendCurr?.icon}</span>
           </div>
         </div>
-        <CurrencySelector
-          value={sendCurrency}
-          onChange={setSendCurrency}
-          label="Network / Asset"
-          exclude={receiveCurrency}
-        />
+        <CurrencySelector value={sendCurrency} onChange={setSendCurrency} label="Network / Asset" exclude={receiveCurrency} />
       </div>
 
       {/* ─── Swap button ───────────────────────────────────── */}
@@ -177,12 +201,7 @@ export function ExchangeWidget({ onDealCreated }: ExchangeWidgetProps) {
             <span className="opacity-50">{receiveCurr?.icon}</span>
           </div>
         </div>
-        <CurrencySelector
-          value={receiveCurrency}
-          onChange={setReceiveCurrency}
-          label="Payout Method"
-          exclude={sendCurrency}
-        />
+        <CurrencySelector value={receiveCurrency} onChange={setReceiveCurrency} label="Payout Method" exclude={sendCurrency} />
       </div>
 
       {/* ─── Rate row ──────────────────────────────────────── */}
@@ -196,77 +215,24 @@ export function ExchangeWidget({ onDealCreated }: ExchangeWidgetProps) {
         </span>
       </div>
 
-      {/* ─── Contact form (expandable) ─────────────────────── */}
-      <AnimatePresence>
-        {showForm && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.2 }}
-            className="overflow-hidden space-y-3"
-          >
-            <div className="h-px bg-gray-200 dark:bg-white/8" />
-            <p className="text-xs font-semibold text-gray-400 dark:text-white/40 uppercase tracking-wide">
-              Contact Details
-            </p>
-            {[
-              { placeholder: t.exchange.name, value: name, onChange: setName, type: 'text' },
-              { placeholder: t.exchange.email, value: email, onChange: setEmail, type: 'email' },
-              { placeholder: `${t.exchange.wallet} (optional)`, value: wallet, onChange: setWallet, type: 'text' },
-            ].map(({ placeholder, value, onChange, type }) => (
-              <input
-                key={placeholder}
-                type={type}
-                placeholder={placeholder}
-                value={value}
-                onChange={(e) => onChange(e.target.value)}
-                className={cn(
-                  'w-full px-4 py-3 rounded-xl border text-sm outline-none transition-all duration-200',
-                  'bg-white border-gray-300 text-gray-900 placeholder-gray-400',
-                  'focus:border-[#5B8CFF] focus:shadow-[0_0_0_3px_rgba(91,140,255,0.15)]',
-                  'dark:bg-white/5 dark:border-white/10 dark:text-white dark:placeholder-white/30',
-                  'dark:focus:border-[#5B8CFF]/60 dark:focus:shadow-[0_0_0_3px_rgba(91,140,255,0.2)]',
-                )}
-              />
-            ))}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* ─── CTA ──────────────────────────────────────────── */}
-      {!showForm ? (
-        <Button
-          variant="primary"
-          size="xl"
-          fullWidth
-          onClick={() => setShowForm(true)}
-          className="mt-2 font-black tracking-wide h-14 text-base"
-        >
-          <Sparkles size={17} />
-          {t.exchange.enterDetails}
-          <ChevronRight size={17} />
-        </Button>
-      ) : (
-        <Button
-          variant="primary"
-          size="xl"
-          fullWidth
-          onClick={handleCreate}
-          isLoading={isCreating}
-          disabled={!isFormValid}
-          className="mt-2 font-black tracking-wide h-14 text-base"
-        >
-          <Zap size={17} />
-          {t.exchange.createDeal}
-        </Button>
-      )}
+      <Button
+        variant="primary"
+        size="xl"
+        fullWidth
+        onClick={handleCreate}
+        isLoading={isCreating}
+        className="mt-2 font-black tracking-wide h-14 text-base"
+      >
+        <Zap size={17} />
+        {user ? t.exchange.createDeal : t.exchange.signInToCreate}
+      </Button>
 
       {/* ─── Trust indicators ─────────────────────────────── */}
       <div className="grid grid-cols-3 gap-2 pt-1">
         {[
-          { icon: Shield, label: t.exchange.secure },
-          { icon: Zap, label: t.exchange.instant },
+          { icon: Shield,   label: t.exchange.secure },
+          { icon: Zap,      label: t.exchange.instant },
           { icon: Sparkles, label: t.exchange.bestRate },
         ].map(({ icon: Icon, label }) => (
           <div key={label} className="flex items-center justify-center gap-1.5 py-2">
@@ -275,6 +241,18 @@ export function ExchangeWidget({ onDealCreated }: ExchangeWidgetProps) {
           </div>
         ))}
       </div>
+
+      {/* ─── Quick Auth Modal ─────────────────────────────── */}
+      <AnimatePresence>
+        {showQuickAuth && (
+          <QuickAuthModal
+            onClose={() => setShowQuickAuth(false)}
+            onSuccess={handleAuthSuccess}
+            title={t.exchange.signInToCreate}
+            description="Quick registration — no email required. Deal data is preserved."
+          />
+        )}
+      </AnimatePresence>
     </div>
   )
 }

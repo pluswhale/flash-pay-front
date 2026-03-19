@@ -16,7 +16,7 @@ interface ContextPanelProps {
 
 type Tab = 'client' | 'deal' | 'rfq'
 
-const STATUS_ORDER: DealStatus[] = ['NEW', 'IN_PROGRESS', 'PAYMENT_RECEIVED', 'COMPLETED']
+const STATUS_ORDER: DealStatus[] = ['AWAITING_PAYMENT', 'IN_PROGRESS', 'PAYMENT_RECEIVED', 'VERIFICATION', 'PAYOUT_SENT', 'COMPLETED']
 
 export function ContextPanel({ dealId, onClose }: ContextPanelProps) {
   const { t } = useTranslation()
@@ -42,8 +42,11 @@ export function ContextPanel({ dealId, onClose }: ContextPanelProps) {
   }
 
   const statusLabels: Record<DealStatus, string> = {
-    NEW: t.status.NEW, IN_PROGRESS: t.status.IN_PROGRESS,
-    PAYMENT_RECEIVED: t.status.PAYMENT_RECEIVED, COMPLETED: t.status.COMPLETED, CANCELLED: t.status.CANCELLED,
+    NEW: t.status.NEW, AWAITING_PAYMENT: t.status.AWAITING_PAYMENT,
+    IN_PROGRESS: t.status.IN_PROGRESS, PAYMENT_RECEIVED: t.status.PAYMENT_RECEIVED,
+    VERIFICATION: t.status.VERIFICATION, PAYOUT_SENT: t.status.PAYOUT_SENT,
+    COMPLETED: t.status.COMPLETED, CANCELLED: t.status.CANCELLED,
+    REFUND: t.status.REFUND, EXPIRED: t.status.EXPIRED,
   }
 
   const tabs = [

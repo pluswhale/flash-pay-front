@@ -17,10 +17,15 @@ const STATUS_ORDER: DealStatus[] = ['NEW', 'IN_PROGRESS', 'PAYMENT_RECEIVED', 'C
 
 const stepInfo: Record<DealStatus, { icon: typeof Zap }> = {
   NEW:              { icon: Clock },
+  AWAITING_PAYMENT: { icon: Clock },
   IN_PROGRESS:      { icon: Zap },
   PAYMENT_RECEIVED: { icon: CheckCircle2 },
+  VERIFICATION:     { icon: Zap },
+  PAYOUT_SENT:      { icon: ArrowRight },
   COMPLETED:        { icon: CheckCircle2 },
   CANCELLED:        { icon: Clock },
+  REFUND:           { icon: Clock },
+  EXPIRED:          { icon: Clock },
 }
 
 export function DealWindow({ dealId, onBack }: DealWindowProps) {
@@ -32,11 +37,16 @@ export function DealWindow({ dealId, onBack }: DealWindowProps) {
   if (!deal) return null
 
   const statusLabels: Record<DealStatus, string> = {
-    NEW: t.status.NEW,
-    IN_PROGRESS: t.status.IN_PROGRESS,
+    NEW:              t.status.NEW,
+    AWAITING_PAYMENT: t.status.AWAITING_PAYMENT,
+    IN_PROGRESS:      t.status.IN_PROGRESS,
     PAYMENT_RECEIVED: t.status.PAYMENT_RECEIVED,
-    COMPLETED: t.status.COMPLETED,
-    CANCELLED: t.status.CANCELLED,
+    VERIFICATION:     t.status.VERIFICATION,
+    PAYOUT_SENT:      t.status.PAYOUT_SENT,
+    COMPLETED:        t.status.COMPLETED,
+    CANCELLED:        t.status.CANCELLED,
+    REFUND:           t.status.REFUND,
+    EXPIRED:          t.status.EXPIRED,
   }
 
   const stepIdx = STATUS_ORDER.indexOf(deal.status)

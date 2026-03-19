@@ -1,4 +1,14 @@
-export type DealStatus = 'NEW' | 'IN_PROGRESS' | 'PAYMENT_RECEIVED' | 'COMPLETED' | 'CANCELLED'
+export type DealStatus =
+  | 'NEW'
+  | 'AWAITING_PAYMENT'
+  | 'IN_PROGRESS'
+  | 'PAYMENT_RECEIVED'
+  | 'VERIFICATION'
+  | 'PAYOUT_SENT'
+  | 'COMPLETED'
+  | 'CANCELLED'
+  | 'REFUND'
+  | 'EXPIRED'
 
 export type Currency = {
   code: string
@@ -23,6 +33,13 @@ export type Message = {
   isRead: boolean
 }
 
+export type DealLog = {
+  id: string
+  action: string
+  timestamp: Date
+  actor: 'client' | 'operator' | 'system'
+}
+
 export type Deal = {
   id: string
   status: DealStatus
@@ -34,12 +51,15 @@ export type Deal = {
   receiveCurrency: string
   receiveAmount: number
   rate: number
+  rateLocked: boolean
+  rateLockExpiry: Date
   paymentMethod: string
   requisites: string
   createdAt: Date
   updatedAt: Date
   messages: Message[]
   partnerMessages: Message[]
+  logs: DealLog[]
   riskScore: number
   volume30d: number
   isHighValue: boolean
@@ -64,6 +84,36 @@ export type MarketRate = {
   ask: number
   source: 'bybit' | 'rapira' | 'manual'
   updatedAt: Date
+}
+
+export type UserProfile = {
+  id: string
+  name: string
+  login: string
+  phone?: string
+  telegram?: string
+  kycStatus: 'none' | 'pending' | 'verified'
+  createdAt: Date
+  referralCode: string
+  totalDeals: number
+  totalVolume: number
+}
+
+export type AuthMethod = 'credentials' | 'phone' | 'telegram'
+
+export type Corridor = {
+  id: string
+  from: string
+  to: string
+  fromFlag: string
+  toFlag: string
+  fromName: string
+  toName: string
+  rate: number
+  spread: number
+  volume: string
+  gradient: string
+  popular?: boolean
 }
 
 export type Theme = 'light' | 'dark'

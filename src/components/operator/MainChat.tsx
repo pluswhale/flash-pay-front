@@ -119,8 +119,11 @@ export function MainChat({ dealId, onTogglePanel }: MainChatProps) {
   )
 
   const statusLabels: Record<DealStatus, string> = {
-    NEW: t.status.NEW, IN_PROGRESS: t.status.IN_PROGRESS,
-    PAYMENT_RECEIVED: t.status.PAYMENT_RECEIVED, COMPLETED: t.status.COMPLETED, CANCELLED: t.status.CANCELLED,
+    NEW: t.status.NEW, AWAITING_PAYMENT: t.status.AWAITING_PAYMENT,
+    IN_PROGRESS: t.status.IN_PROGRESS, PAYMENT_RECEIVED: t.status.PAYMENT_RECEIVED,
+    VERIFICATION: t.status.VERIFICATION, PAYOUT_SENT: t.status.PAYOUT_SENT,
+    COMPLETED: t.status.COMPLETED, CANCELLED: t.status.CANCELLED,
+    REFUND: t.status.REFUND, EXPIRED: t.status.EXPIRED,
   }
 
   if (!deal) {

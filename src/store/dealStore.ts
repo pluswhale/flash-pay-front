@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Deal, DealStatus, Message } from '../types'
+import type { Deal, DealStatus, DealLog, Message } from '../types'
 
 const CURRENCIES = ['BTC', 'ETH', 'USDT', 'TON', 'USD', 'EUR', 'RUB']
 
@@ -47,6 +47,7 @@ interface DealState {
   setActiveDeal: (id: string | null) => void
   setPartnerQuote: (id: string, quote: Deal['partnerQuote']) => void
   getDeal: (id: string) => Deal | undefined
+  addLog: (id: string, log: Omit<DealLog, 'id'>) => void
 }
 
 export const useDealStore = create<DealState>((set, get) => ({
@@ -56,9 +57,10 @@ export const useDealStore = create<DealState>((set, get) => ({
 
   createDeal: (params) => {
     const id = generateId()
+    const now = new Date()
     const deal: Deal = {
       id,
-      status: 'NEW',
+      status: 'AWAITING_PAYMENT',
       clientName: params.clientName,
       clientEmail: params.clientEmail,
       sendCurrency: params.sendCurrency,
@@ -66,12 +68,15 @@ export const useDealStore = create<DealState>((set, get) => ({
       receiveCurrency: params.receiveCurrency,
       receiveAmount: params.receiveAmount,
       rate: params.rate,
+      rateLocked: true,
+      rateLockExpiry: new Date(now.getTime() + 15 * 60 * 1000),
       paymentMethod: params.paymentMethod,
       requisites: generateRequisites(params.sendCurrency),
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      createdAt: now,
+      updatedAt: now,
       messages: [...SEED_MESSAGES],
       partnerMessages: [],
+      logs: [{ id: 'l1', action: 'Deal created', timestamp: now, actor: 'system' }],
       riskScore: Math.floor(Math.random() * 40) + 10,
       volume30d: Math.floor(Math.random() * 50000) + 1000,
       isHighValue: params.sendAmount > 5000,
@@ -132,6 +137,15 @@ export const useDealStore = create<DealState>((set, get) => ({
     })),
 
   getDeal: (id) => get().deals.find((d) => d.id === id),
+
+  addLog: (id, log) =>
+    set((s) => ({
+      deals: s.deals.map((d) =>
+        d.id === id
+          ? { ...d, logs: [...(d.logs ?? []), { ...log, id: `l${Date.now()}` }], updatedAt: new Date() }
+          : d
+      ),
+    })),
 }))
 
 export const CURRENCIES_LIST = [
@@ -153,6 +167,16 @@ export const RATES: Record<string, number> = {
   'BTC-USDT': 95000,
   'ETH-USDT': 3450,
   'RUB-USDT': 0.0108,
+  // THB corridors
+  'USDT-THB': 36.5,
+  'USD-THB': 36.2,
+  'RUB-THB': 0.39,
+  // AED corridor
+  'USDT-AED': 3.67,
+  // CNY corridors
+  'RUB-CNY': 0.079,
+  'USDT-CNY': 7.25,
+  'USD-CNY': 7.24,
 }
 
 export function getRate(from: string, to: string): number {

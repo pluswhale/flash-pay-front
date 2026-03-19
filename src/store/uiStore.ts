@@ -5,8 +5,11 @@ import type { Theme, Language } from '../types'
 interface UIState {
   theme: Theme
   language: Language
+  // Session-only: prefill exchange widget from corridor click
+  pendingCorridor: { from: string; to: string } | null
   toggleTheme: () => void
   setLanguage: (lang: Language) => void
+  setPendingCorridor: (c: { from: string; to: string } | null) => void
 }
 
 export const useUIStore = create<UIState>()(
@@ -14,6 +17,7 @@ export const useUIStore = create<UIState>()(
     (set) => ({
       theme: 'dark',
       language: 'en',
+      pendingCorridor: null,
       toggleTheme: () =>
         set((s) => {
           const next = s.theme === 'light' ? 'dark' : 'light'
@@ -21,9 +25,12 @@ export const useUIStore = create<UIState>()(
           return { theme: next }
         }),
       setLanguage: (language) => set({ language }),
+      setPendingCorridor: (pendingCorridor) => set({ pendingCorridor }),
     }),
     {
       name: 'qp-ui',
+      // Don't persist pendingCorridor — it's session-only
+      partialize: (s) => ({ theme: s.theme, language: s.language }),
       onRehydrateStorage: () => (state) => {
         if (state) {
           document.documentElement.classList.toggle('dark', state.theme === 'dark')
