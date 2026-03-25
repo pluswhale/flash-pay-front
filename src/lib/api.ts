@@ -1,6 +1,8 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios'
+import { updateSocketToken } from './socket'
+import { useSessionStore } from '../store/sessionStore'
 
-const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api/v1'
+const BASE_URL = import.meta.env.VITE_API_URL ?? '/api/v1'
 
 export const api = axios.create({
   baseURL: BASE_URL,
@@ -40,14 +42,22 @@ api.interceptors.response.use(
             { refreshToken: stored },
             { withCredentials: true },
           )
-          // Store rotated refresh token
           const newTokens = data.data ?? data
           localStorage.setItem('refresh_token', newTokens.refreshToken)
+
+          // M9: After silent token rotation, keep the WebSocket singleton and
+          // the session store in sync. The socket carries the access token in
+          // its handshake auth — without this update, the next reconnect (after
+          // a network hiccup) would use the expired JWT and be rejected.
+          if (newTokens.accessToken) {
+            updateSocketToken(newTokens.accessToken)
+            useSessionStore.getState().setAccessToken(newTokens.accessToken)
+          }
+
           // Retry original request (cookie is now updated by backend)
           return api(original)
         } catch {
           localStorage.removeItem('refresh_token')
-          // Redirect to login — let the app decide the exact path
           window.dispatchEvent(new Event('auth:expired'))
         }
       }

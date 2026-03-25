@@ -60,7 +60,7 @@ export function LoginPage() {
         </div>
 
         <p className="text-center text-sm dark:text-gray-500 text-gray-400 mt-6">
-          Есть инвайт-ссылка?{' '}
+          Нет аккаунта?{' '}
           <Link to="/register" className="dark:text-blue-400 text-blue-600 hover:underline">
             Зарегистрироваться
           </Link>
@@ -150,11 +150,11 @@ function PasswordLoginForm() {
 
   return (
     <div className="flex flex-col gap-4">
-      <Field label="Телефон или Email">
+      <Field label="Телефон, Email или Логин">
         <InputWithIcon icon={<AtSign size={16} />}>
           <input
             type="text"
-            placeholder="+7 999 000 00 00 или email@example.com"
+            placeholder="+7 999 … или email@example.com или логин"
             value={vm.loginField}
             onChange={(e) => vm.setLoginField(e.target.value)}
             className={inputCls}

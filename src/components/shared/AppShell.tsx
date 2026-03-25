@@ -1,9 +1,15 @@
 /**
  * AppShell — layout wrapper for all authenticated pages.
  * Provides a minimal top navigation bar with role-aware links and logout.
+ *
+ * WS4: Listens for the `ws:reconnect_failed` event dispatched by socket.ts
+ *      after all 15 reconnection attempts are exhausted, and shows a banner.
+ * WS6: Listens for the `auth:expired` event dispatched by api.ts when the
+ *      refresh token is no longer valid, then cleans up and redirects.
  */
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { LogOut, ClipboardList, Users, TicketCheck, ListOrdered, Moon, Sun } from 'lucide-react'
+import { LogOut, ClipboardList, Users, TicketCheck, ListOrdered, Moon, Sun, WifiOff } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useSessionStore } from '../../store/sessionStore'
 import { useUIStore }      from '../../store/uiStore'
@@ -21,6 +27,28 @@ export function AppShell({ children }: Props) {
   const user         = useSessionStore((s) => s.user)
   const clearSession = useSessionStore((s) => s.clearSession)
   const { theme, toggleTheme } = useUIStore()
+
+  // WS4: shown when socket.io gives up reconnecting
+  const [wsLost, setWsLost] = useState(false)
+
+  // WS6: auth:expired — tokens are completely invalid; force logout
+  useEffect(() => {
+    const handler = () => {
+      queryClient.clear()
+      clearSession()
+      disconnectSocket()
+      navigate('/login')
+    }
+    window.addEventListener('auth:expired', handler)
+    return () => window.removeEventListener('auth:expired', handler)
+  }, [queryClient, clearSession, navigate])
+
+  // WS4: ws:reconnect_failed — socket gave up; show reload banner
+  useEffect(() => {
+    const handler = () => setWsLost(true)
+    window.addEventListener('ws:reconnect_failed', handler)
+    return () => window.removeEventListener('ws:reconnect_failed', handler)
+  }, [])
 
   const handleLogout = async () => {
     try { await logoutApi() } catch { /* ignore */ }
@@ -71,7 +99,7 @@ export function AppShell({ children }: Props) {
 
             {user && (
               <span className="text-xs dark:text-gray-400 text-gray-500 hidden sm:block">
-                {user.phone}
+                {user.phone ?? user.email ?? user.username ?? ''}
               </span>
             )}
 
@@ -86,6 +114,21 @@ export function AppShell({ children }: Props) {
           </div>
         </div>
       </header>
+
+      {/* ── WS4: Connection-lost banner ───────────────────────────────────────── */}
+      {wsLost && (
+        <div className="flex items-center justify-center gap-3 bg-red-600 text-white text-xs py-2 px-4">
+          <WifiOff size={13} />
+          <span>Соединение потеряно. Данные могут быть устаревшими.</span>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="underline font-semibold hover:no-underline"
+          >
+            Перезагрузить
+          </button>
+        </div>
+      )}
 
       {/* ── Page content ─────────────────────────────────────────────────────── */}
       <main className="flex-1">

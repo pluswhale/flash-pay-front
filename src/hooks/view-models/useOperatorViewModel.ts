@@ -38,8 +38,7 @@ export function useOperatorQueueViewModel(statusFilter?: RequestStatus) {
   const { data: requests, isLoading, isError, error } = useQuery({
     queryKey: queryKeys.requests.queue(statusFilter),
     queryFn:  () => getAllRequests(statusFilter),
-    staleTime: 10_000,
-    refetchInterval: 30_000,
+    staleTime: 60_000,
   })
 
   useEffect(() => {

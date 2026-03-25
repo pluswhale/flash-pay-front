@@ -17,6 +17,9 @@ interface SessionState {
 
   setSession:    (user: User, accessToken: string) => void
   setUser:       (user: User) => void
+  // M9: update only the access token (e.g. after silent token rotation by
+  // the API interceptor) without touching the User object.
+  setAccessToken: (accessToken: string) => void
   clearSession:  () => void
 }
 
@@ -24,7 +27,8 @@ export const useSessionStore = create<SessionState>()((set) => ({
   user:        null,
   accessToken: null,
 
-  setSession:   (user, accessToken) => set({ user, accessToken }),
-  setUser:      (user)              => set({ user }),
-  clearSession: ()                  => set({ user: null, accessToken: null }),
+  setSession:    (user, accessToken) => set({ user, accessToken }),
+  setUser:       (user)              => set({ user }),
+  setAccessToken: (accessToken)      => set({ accessToken }),
+  clearSession:  ()                  => set({ user: null, accessToken: null }),
 }))
