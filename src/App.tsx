@@ -1,25 +1,18 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useEffect } from 'react'
-import { Navbar } from './components/shared/Navbar'
-import { ClientPage } from './pages/ClientPage'
-import { OperatorPage } from './pages/OperatorPage'
-import { AuthPage } from './pages/AuthPage'
-import { DashboardPage } from './pages/DashboardPage'
-import { DealPage } from './pages/DealPage'
-import { CorridorsPage } from './pages/CorridorsPage'
-import { FaqPage } from './pages/FaqPage'
-import { LegalPage } from './pages/LegalPage'
 import { useUIStore } from './store/uiStore'
 
-// Layout wrapper shared by all client-facing pages
-function ClientLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <>
-      <Navbar />
-      {children}
-    </>
-  )
-}
+import { LoginPage }    from './pages/LoginPage'
+import { RegisterPage } from './pages/RegisterPage'
+
+import { RequestsPage }    from './pages/app/RequestsPage'
+import { RequestDetailPage } from './pages/app/RequestDetailPage'
+import { OperatorCRM }       from './pages/operator/OperatorCRM'
+import { InvitesPage }       from './pages/admin/InvitesPage'
+import { OperatorsPage }     from './pages/admin/OperatorsPage'
+
+import { RouteGuard } from './components/shared/RouteGuard'
+import { Role }       from './types/api'
 
 export default function App() {
   const theme = useUIStore((s) => s.theme)
@@ -31,21 +24,58 @@ export default function App() {
   return (
     <BrowserRouter basename="/flash-pay-front">
       <Routes>
-        {/* Operator CRM — no Navbar */}
-        <Route path="/operator" element={<OperatorPage />} />
+        {/* ── Public ─────────────────────────────────────────────────────── */}
+        <Route path="/login"    element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
 
-        {/* Auth — minimal chrome */}
-        <Route path="/auth" element={<ClientLayout><AuthPage /></ClientLayout>} />
+        {/* ── Client ─────────────────────────────────────────────────────── */}
+        <Route
+          path="/app/requests"
+          element={
+            <RouteGuard requiredRole={Role.CLIENT}>
+              <RequestsPage />
+            </RouteGuard>
+          }
+        />
+        <Route
+          path="/app/requests/:id"
+          element={
+            <RouteGuard requiredRole={Role.CLIENT}>
+              <RequestDetailPage />
+            </RouteGuard>
+          }
+        />
 
-        {/* Full client pages */}
-        <Route path="/dashboard" element={<ClientLayout><DashboardPage /></ClientLayout>} />
-        <Route path="/deal/:id"  element={<ClientLayout><DealPage /></ClientLayout>} />
-        <Route path="/corridors" element={<ClientLayout><CorridorsPage /></ClientLayout>} />
-        <Route path="/faq"       element={<ClientLayout><FaqPage /></ClientLayout>} />
-        <Route path="/legal"     element={<ClientLayout><LegalPage /></ClientLayout>} />
+        {/* ── Operator ───────────────────────────────────────────────────── */}
+        <Route
+          path="/operator/queue"
+          element={
+            <RouteGuard requiredRole={Role.OPERATOR} noShell>
+              <OperatorCRM />
+            </RouteGuard>
+          }
+        />
 
-        {/* Default: exchange home */}
-        <Route path="/*" element={<ClientLayout><ClientPage /></ClientLayout>} />
+        {/* ── Admin ──────────────────────────────────────────────────────── */}
+        <Route
+          path="/admin/invites"
+          element={
+            <RouteGuard requiredRole={Role.ADMIN}>
+              <InvitesPage />
+            </RouteGuard>
+          }
+        />
+        <Route
+          path="/admin/operators"
+          element={
+            <RouteGuard requiredRole={Role.ADMIN}>
+              <OperatorsPage />
+            </RouteGuard>
+          }
+        />
+
+        {/* ── Catch-all → login ───────────────────────────────────────────── */}
+        <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>
   )
