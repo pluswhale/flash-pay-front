@@ -15,7 +15,7 @@ import { useQuery }  from '@tanstack/react-query'
 import { Loader2 }   from 'lucide-react'
 import { queryKeys }     from '../../lib/query-keys'
 import { getMe, refreshTokens } from '../../api/auth.service'
-import { getSocket }            from '../../lib/socket'
+import { getSocket, updateSocketToken } from '../../lib/socket'
 import { useSessionStore }      from '../../store/sessionStore'
 import { AppShell }             from './AppShell'
 import { Role }                 from '../../types/api'
@@ -65,6 +65,10 @@ export function RouteGuard({ children, requiredRole, noShell = false }: Props) {
       .then((tokens) => {
         localStorage.setItem('refresh_token', tokens.refreshToken)
         setSession(currentUser, tokens.accessToken)
+        // M9: if a stale socket singleton already exists (e.g. hot-reload or
+        // component remount before disconnect), update its auth token first so
+        // it won't reconnect with an expired JWT.
+        updateSocketToken(tokens.accessToken)
         getSocket(tokens.accessToken)
       })
       .catch(() => {

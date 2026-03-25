@@ -5,6 +5,9 @@
  * - Fetch own requests (with React Query caching)
  * - Create a new request (mutation + cache invalidation)
  * - Access a single request by ID with real-time status updates via WS
+ *
+ * No polling — WebSocket is the sole source of real-time updates after
+ * the initial REST load.
  */
 import { useEffect, useCallback } from 'react'
 import {
@@ -25,13 +28,34 @@ import { useSessionStore }  from '../../store/sessionStore'
 import type { CreateRequestDto, OtcRequest } from '../../types/api'
 
 // ─── Client: own request list ─────────────────────────────────────────────────
+// Listens for `request:updated` so the list item status badge updates
+// instantly when an operator changes status — no polling needed.
 
 export function useMyRequestsViewModel() {
+  const queryClient = useQueryClient()
+  const accessToken = useSessionStore((s) => s.accessToken)
+
   const { data: requests, isLoading, isError, error } = useQuery({
     queryKey: queryKeys.requests.my(),
     queryFn:  getMyRequests,
-    staleTime: 30_000,
+    staleTime: 60_000,
   })
+
+  useEffect(() => {
+    if (!accessToken) return
+
+    const sock = getSocket(accessToken)
+
+    const onUpdated = (req: OtcRequest) => {
+      queryClient.setQueryData<OtcRequest[]>(
+        queryKeys.requests.my(),
+        (prev) => prev?.map((r) => r.id === req.id ? { ...r, ...req } : r) ?? [req],
+      )
+    }
+
+    sock.on('request:updated', onUpdated)
+    return () => { sock.off('request:updated', onUpdated) }
+  }, [accessToken, queryClient])
 
   return {
     requests:     requests ?? [],
@@ -79,8 +103,7 @@ export function useRequestDetailViewModel(id: string) {
     queryKey: queryKeys.requests.detail(id),
     queryFn:  () => getRequest(id),
     enabled:  Boolean(id),
-    staleTime: 10_000,
-    refetchInterval: 30_000,   // polling fallback if WS is unavailable
+    staleTime: 60_000,
   })
 
   const eventsQuery = useQuery({

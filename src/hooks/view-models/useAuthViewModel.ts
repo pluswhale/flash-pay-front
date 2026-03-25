@@ -77,24 +77,53 @@ export function useOtpViewModel() {
 
 // ─── Registration ViewModel ───────────────────────────────────────────────────
 
-export function useRegisterViewModel(inviteCode: string) {
-  const navigate    = useNavigate()
-  const setSession  = useSessionStore((s) => s.setSession)
-  const [name, setName]         = useState('')
-  const [email, setEmail]       = useState('')
-  const [password, setPassword] = useState('')
-  const [error, setError]       = useState<string | null>(null)
+/**
+ * Supports two registration flows:
+ *
+ *  authMethod='phone' — phone + SMS code. Email + password optional extras.
+ *  authMethod='email' — email + password. Single-step (no OTP needed).
+ *
+ * inviteCode is optional. When present it is forwarded to the backend;
+ * the role is derived from the invite. Without it the user becomes CLIENT.
+ */
+export function useRegisterViewModel(inviteCode?: string) {
+  const navigate   = useNavigate()
+  const setSession = useSessionStore((s) => s.setSession)
+
+  const [authMethod, setAuthMethod] = useState<'phone' | 'email'>('phone')
+  const [name,       setName]       = useState('')
+  const [email,      setEmail]      = useState('')
+  const [username,   setUsername]   = useState('')
+  const [password,   setPassword]   = useState('')
+  const [error,      setError]      = useState<string | null>(null)
+
   const otp = useOtpViewModel()
 
   const registerMutation = useMutation({
-    mutationFn: () => register({
-      phone: otp.phone,
-      code: otp.code,
-      inviteCode,
-      name,
-      email:    email.trim()    || undefined,
-      password: password.trim() || undefined,
-    }),
+    mutationFn: () => {
+      const base = {
+        authMethod,
+        name,
+        inviteCode: inviteCode || undefined,
+        username:   username.trim() || undefined,
+      }
+
+      if (authMethod === 'phone') {
+        return register({
+          ...base,
+          phone:    otp.phone,
+          code:     otp.code,
+          email:    email.trim()    || undefined,
+          password: password.trim() || undefined,
+        })
+      }
+
+      return register({
+        ...base,
+        email:    email.trim(),
+        password: password.trim(),
+      })
+    },
     onSuccess: (data) => {
       localStorage.setItem('refresh_token', data.refreshToken)
       setSession(data.user, data.accessToken)
@@ -105,20 +134,45 @@ export function useRegisterViewModel(inviteCode: string) {
   })
 
   const handleRegister = useCallback(() => {
-    if (!name.trim() || !otp.code) { setError('Заполните все поля'); return }
-    if (password && password.length < 8) { setError('Пароль должен быть не менее 8 символов'); return }
     setError(null)
+
+    if (!name.trim()) { setError('Введите имя'); return }
+
+    if (authMethod === 'phone') {
+      if (!otp.phone) { setError('Введите номер телефона'); return }
+      if (!otp.code)  { setError('Введите код из SMS'); return }
+      if (password && password.length < 8) {
+        setError('Пароль должен быть не менее 8 символов')
+        return
+      }
+    }
+
+    if (authMethod === 'email') {
+      if (!email.trim())  { setError('Введите email'); return }
+      if (!password.trim() || password.length < 8) {
+        setError('Пароль должен быть не менее 8 символов')
+        return
+      }
+    }
+
     registerMutation.mutate()
-  }, [name, otp.code, password, registerMutation])
+  }, [name, authMethod, email, password, otp.phone, otp.code, registerMutation])
 
   return {
-    ...otp,
+    // Method selector
+    authMethod, setAuthMethod,
+    // Common fields
     name, setName,
+    username, setUsername,
+    // Email/password fields
     email, setEmail,
     password, setPassword,
+    // Status
     isSubmitting: registerMutation.isPending,
     error: error ?? otp.otpError,
     handleRegister,
+    // OTP fields (used by phone method)
+    ...otp,
   }
 }
 

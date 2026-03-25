@@ -31,7 +31,9 @@ export enum ClientLevel {
 export interface User {
   id: string
   role: Role
-  phone: string
+  phone: string | null
+  email: string | null
+  username: string | null
   isPhoneVerified: boolean
   telegramId: string | null
   telegramUsername: string | null
@@ -141,12 +143,17 @@ export interface CreateRequestDto {
 }
 
 export interface RegisterDto {
-  phone: string
-  code: string
-  inviteCode: string
+  authMethod: 'phone' | 'email'
   name: string
-  email?: string     // optional — enables password-based login
-  password?: string  // optional — min 8 chars
+  // Phone method
+  phone?: string
+  code?: string
+  // Email method
+  email?: string
+  password?: string
+  // Optional for both
+  username?: string
+  inviteCode?: string
 }
 
 export interface LoginWithPasswordDto {
