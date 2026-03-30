@@ -9,18 +9,20 @@
  *  └──────────────────┴──────────────────┘
  *  ─────────── History list ────────────
  *
- * Flow:
- *  Submit form → right panel shows the new request (no navigation).
- *  Click list item → navigate to full chat page.
+ * Active request is stored in the URL (?requestId=xxx) so that:
+ *  - navigating to the full chat and pressing Back restores the panel
+ *  - refreshing the page keeps the panel visible
+ *  - the URL can be bookmarked / shared
  */
-import { useEffect, useState }  from 'react'
-import { useNavigate }          from 'react-router-dom'
-import { motion, AnimatePresence } from 'framer-motion'
+import { useEffect, useState }         from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { motion, AnimatePresence }     from 'framer-motion'
 import { ClipboardList, ArrowRight, Zap } from 'lucide-react'
 
 import {
   useMyRequestsViewModel,
   useCreateRequestViewModel,
+  useRequestDetailViewModel,
 } from '../../hooks/view-models/useRequestViewModel'
 import { RequestList }      from '../../components/request/RequestList'
 import { RequestForm }      from '../../components/request/RequestForm'
@@ -29,40 +31,69 @@ import type { CreateRequestDto, OtcRequest } from '../../types/api'
 
 export function RequestsPage() {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+
   const listVm   = useMyRequestsViewModel()
   const createVm = useCreateRequestViewModel()
 
-  const [activeRequest, setActiveRequest] = useState<OtcRequest | null>(null)
+  // The active request ID lives in the URL so it survives navigation.
+  const requestIdParam = searchParams.get('requestId') ?? ''
 
-  // After successful creation — show in right panel, do not navigate
+  // Eagerly hold the just-created request object so the right panel
+  // appears immediately before the detail query resolves.
+  const [eagerRequest, setEagerRequest] = useState<OtcRequest | null>(null)
+
+  // Load the request from the server when requestId is in the URL
+  // (covers "user navigated back from the chat page" scenario).
+  const savedDetail = useRequestDetailViewModel(requestIdParam)
+
+  // The active request is either the live server data or the eager local copy.
+  const activeRequest = requestIdParam
+    ? (savedDetail.request ?? eagerRequest)
+    : null
+
+  // When a new request is successfully created:
+  //  1. Store the response object immediately (no round-trip delay)
+  //  2. Update the URL so the state is bookmarkable
   useEffect(() => {
     if (createVm.isSuccess && createVm.createdRequest) {
-      setActiveRequest(createVm.createdRequest)
+      setEagerRequest(createVm.createdRequest)
+      setSearchParams({ requestId: createVm.createdRequest.id }, { replace: true })
     }
-  }, [createVm.isSuccess, createVm.createdRequest])
+  }, [createVm.isSuccess, createVm.createdRequest, setSearchParams])
+
+  // Clear the eager copy once the server data is available.
+  useEffect(() => {
+    if (savedDetail.request) setEagerRequest(null)
+  }, [savedDetail.request])
+
+  // Clear eager copy when URL param is removed.
+  useEffect(() => {
+    if (!requestIdParam) setEagerRequest(null)
+  }, [requestIdParam])
 
   const handleCreate = (data: CreateRequestDto) => createVm.handleCreate(data)
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
 
-      {/* ── Page header ────────────────────────────────────────────────── */}
+      {/* ── Page header ──────────────────────────────────────────────────── */}
       <div className="mb-6">
-        <h1 className="flex items-center gap-2 text-xl font-bold dark:text-white text-gray-900">
-          <Zap size={18} className="text-blue-500 shrink-0" />
+        <h1 className="flex items-center gap-2 text-xl font-bold text-primary">
+          <Zap size={18} className="text-brand shrink-0" />
           Создать заявку
         </h1>
-        <p className="text-sm dark:text-gray-400 text-gray-500 mt-0.5">
+        <p className="text-sm text-muted mt-0.5">
           Заполните форму — оператор ответит в течение нескольких минут
         </p>
       </div>
 
-      {/* ── Main: 2-col (form left + info panel right) ─────────────────── */}
+      {/* ── Main: 2-col (form left + info panel right) ───────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 mb-10">
 
-        {/* Left: Form (always visible) */}
-        <div className="rounded-2xl border dark:border-white/10 border-gray-200 dark:bg-white/5 bg-white p-5 sm:p-6">
-          <p className="text-xs font-semibold uppercase tracking-widest dark:text-gray-500 text-gray-400 mb-4">
+        {/* Left: Form */}
+        <div className="glass rounded-2xl p-5 sm:p-6">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted mb-4">
             Заявка на обмен
           </p>
           <RequestForm
@@ -72,7 +103,7 @@ export function RequestsPage() {
           />
         </div>
 
-        {/* Right: Info panel (appears after creation) */}
+        {/* Right: Info panel or placeholder */}
         <AnimatePresence mode="wait">
           {activeRequest ? (
             <motion.div
@@ -80,7 +111,7 @@ export function RequestsPage() {
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 20 }}
-              transition={{ duration: 0.28, ease: 'easeOut' }}
+              transition={{ duration: 0.25, ease: 'easeOut' }}
             >
               <RequestInfoPanel request={activeRequest} />
             </motion.div>
@@ -97,23 +128,20 @@ export function RequestsPage() {
                 'min-h-[420px] gap-4 p-8',
               ].join(' ')}
             >
-              <div className={[
-                'w-16 h-16 rounded-2xl flex items-center justify-center',
-                'dark:bg-white/5 bg-gray-50 border dark:border-white/8 border-gray-200',
-              ].join(' ')}>
-                <ArrowRight size={22} className="dark:text-gray-600 text-gray-300" />
+              <div className="w-16 h-16 rounded-2xl flex items-center justify-center dark:bg-white/5 bg-gray-50 border dark:border-white/8 border-gray-200">
+                <ArrowRight size={22} className="text-muted" />
               </div>
 
               <div className="space-y-1">
-                <p className="text-sm font-semibold dark:text-gray-400 text-gray-500">
+                <p className="text-sm font-semibold text-secondary">
                   Здесь появится ваша заявка
                 </p>
-                <p className="text-xs dark:text-gray-600 text-gray-400 max-w-[200px] leading-relaxed">
+                <p className="text-xs text-muted max-w-[200px] leading-relaxed">
                   После отправки формы вы сможете сразу написать оператору
                 </p>
               </div>
 
-              <div className="flex items-center gap-1.5 text-xs dark:text-gray-600 text-gray-400">
+              <div className="flex items-center gap-1.5 text-xs text-muted">
                 <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                 Операторы онлайн
               </div>
@@ -122,18 +150,19 @@ export function RequestsPage() {
         </AnimatePresence>
       </div>
 
-      {/* ── Bottom: Request history ─────────────────────────────────────── */}
+      {/* ── Bottom: Request history ───────────────────────────────────────── */}
       <div>
+        {/* Title + inline counter — no justify-between, they sit together */}
         <div className="flex items-center gap-2 mb-4">
-          <ClipboardList size={15} className="dark:text-gray-500 text-gray-400 shrink-0" />
-          <h2 className="text-sm font-semibold dark:text-gray-300 text-gray-700">
+          <ClipboardList size={15} className="text-muted shrink-0" />
+          <h2 className="text-sm font-semibold text-secondary">
             История заявок
+            {listVm.requests.length > 0 && (
+              <span className="ml-1.5 font-normal text-muted">
+                ({listVm.requests.length})
+              </span>
+            )}
           </h2>
-          {listVm.requests.length > 0 && (
-            <span className="ml-auto text-xs dark:text-gray-600 text-gray-400">
-              {listVm.requests.length}
-            </span>
-          )}
         </div>
 
         {listVm.isError && (

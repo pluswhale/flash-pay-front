@@ -39,7 +39,7 @@ export function ChatInput({ onSend, onTyping, disabled, quickReplies }: Props) {
   }
 
   return (
-    <div className="border-t dark:border-white/10 border-gray-200 dark:bg-[#0d1526] bg-white">
+    <div className="border-t dark:border-white/8 border-gray-200 dark:bg-surface-1 bg-white">
       {/* ── Quick reply chips ─────────────────────────────────────────────── */}
       {quickReplies && quickReplies.length > 0 && (
         <div className="px-4 pt-2 pb-1 flex flex-wrap gap-1.5">
