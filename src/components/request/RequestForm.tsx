@@ -1,10 +1,11 @@
 /**
  * Pure component — single-page OTC request form. Russian labels.
- * Replaces the previous multi-step form.
  */
 import { useState } from 'react'
-import { ArrowRight, ChevronDown, Loader2, MapPin, MessageSquare } from 'lucide-react'
+import { ArrowRight, MapPin, MessageSquare } from 'lucide-react'
 import type { CreateRequestDto } from '../../types/api'
+import { Button } from '../../ui'
+import { GlassSelect, type SelectOption } from '../../shared/ui/GlassSelect'
 
 interface Props {
   onSubmit:     (data: CreateRequestDto) => void
@@ -33,19 +34,21 @@ const PAYOUT_METHODS = [
 
 const CURRENCIES = ['USDT', 'USD', 'EUR', 'RUB', 'THB', 'AED', 'CNY']
 
-// These methods imply a physical location is relevant
 const PHYSICAL_METHODS = new Set(['Банкомат', 'Наличными (курьер)'])
 
+// Module-level option arrays — stable references (AGENTS.md 5.4)
+const CURRENCY_OPTIONS: SelectOption[] = CURRENCIES.map((c) => ({ value: c, label: c }))
+const PAYOUT_OPTIONS: SelectOption[]   = PAYOUT_METHODS.map((m) => ({ value: m, label: m }))
+
+// Shared control styles using design-system tokens
 const INPUT_CLS =
-  'px-4 py-3 rounded-xl border dark:border-white/10 border-gray-200 ' +
-  'dark:bg-white/5 bg-white dark:text-white text-gray-900 ' +
-  'dark:placeholder-gray-500 placeholder-gray-400 ' +
-  'focus:outline-none focus:ring-2 focus:ring-blue-500/50 ' +
+  'px-4 py-3 rounded-xl input-surface ' +
+  'focus:outline-none focus:ring-2 focus:ring-brand/40 ' +
   'transition-shadow w-full'
 
 const LABEL_CLS =
   'flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest ' +
-  'dark:text-gray-500 text-gray-400 mb-2'
+  'text-muted mb-2'
 
 export function RequestForm({ onSubmit, isSubmitting, errorMessage }: Props) {
   const [directionFrom, setDirectionFrom] = useState('')
@@ -95,8 +98,8 @@ export function RequestForm({ onSubmit, isSubmitting, errorMessage }: Props) {
                 className={[
                   'flex items-center justify-center gap-1.5 p-3 rounded-xl border text-sm font-medium transition-all',
                   selected
-                    ? 'border-blue-500 bg-blue-500/10 dark:text-blue-400 text-blue-600 shadow-[0_0_0_1px_rgba(59,130,246,0.4)]'
-                    : 'dark:border-white/10 border-gray-200 dark:text-gray-300 text-gray-700 dark:hover:border-white/20 hover:border-gray-300 dark:hover:bg-white/5 hover:bg-gray-50',
+                    ? 'border-brand bg-brand/10 text-brand shadow-[0_0_0_1px_rgba(91,140,255,0.4)]'
+                    : 'dark:border-white/10 border-gray-200 text-secondary dark:hover:border-white/20 hover:border-gray-300 dark:hover:bg-white/5 hover:bg-gray-50',
                 ].join(' ')}
               >
                 <span>{d.from}</span>
@@ -121,47 +124,29 @@ export function RequestForm({ onSubmit, isSubmitting, errorMessage }: Props) {
             onChange={(e) => setAmount(e.target.value)}
             className={INPUT_CLS + ' flex-1 min-w-0'}
           />
-          <div className="relative shrink-0">
-            <select
-              value={currency}
-              onChange={(e) => setCurrency(e.target.value)}
-              className={[
-                'appearance-none pl-4 pr-8 py-3 rounded-xl border',
-                'dark:border-white/10 border-gray-200',
-                'dark:bg-[#1a2235] bg-white dark:text-white text-gray-900',
-                'focus:outline-none focus:ring-2 focus:ring-blue-500/50',
-              ].join(' ')}
-            >
-              {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
-            <ChevronDown size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none dark:text-gray-400 text-gray-500" />
-          </div>
+          {/* Currency selector — compact fixed-width (AGENTS.md 5.4: stable CURRENCY_OPTIONS ref) */}
+          <GlassSelect
+            options={CURRENCY_OPTIONS}
+            value={currency}
+            onChange={setCurrency}
+            className="w-[100px] shrink-0"
+          />
         </div>
       </div>
 
       {/* ── Способ получения ───────────────────────────────────────── */}
       <div>
         <p className={LABEL_CLS}>Способ получения</p>
-        <div className="relative">
-          <select
-            value={payoutMethod}
-            onChange={(e) => setPayoutMethod(e.target.value)}
-            className={[
-              'w-full appearance-none pl-4 pr-9 py-3 rounded-xl border',
-              'dark:border-white/10 border-gray-200',
-              'dark:bg-[#1a2235] bg-white dark:text-white text-gray-900',
-              'focus:outline-none focus:ring-2 focus:ring-blue-500/50',
-            ].join(' ')}
-          >
-            <option value="">Выберите способ…</option>
-            {PAYOUT_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
-          </select>
-          <ChevronDown size={13} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none dark:text-gray-400 text-gray-500" />
-        </div>
+        <GlassSelect
+          options={PAYOUT_OPTIONS}
+          value={payoutMethod}
+          onChange={setPayoutMethod}
+          placeholder="Выберите способ…"
+        />
       </div>
 
       {/* ── Локация (условная) ─────────────────────────────────────── */}
-      {showLocation && (
+      {showLocation ? (
         <div>
           <p className={LABEL_CLS}>
             <MapPin size={11} />
@@ -184,14 +169,14 @@ export function RequestForm({ onSubmit, isSubmitting, errorMessage }: Props) {
             />
           </div>
         </div>
-      )}
+      ) : null}
 
       {/* ── Комментарий ────────────────────────────────────────────── */}
       <div>
         <p className={LABEL_CLS}>
           <MessageSquare size={11} />
           Комментарий
-          <span className="normal-case font-normal opacity-60 ml-0.5">— необязательно</span>
+          <span className="normal-case font-normal opacity-55 ml-0.5">— необязательно</span>
         </p>
         <textarea
           rows={2}
@@ -203,29 +188,25 @@ export function RequestForm({ onSubmit, isSubmitting, errorMessage }: Props) {
       </div>
 
       {/* ── Ошибка ─────────────────────────────────────────────────── */}
-      {errorMessage && (
+      {errorMessage !== null ? (
         <p className="text-sm text-red-400 bg-red-500/10 rounded-xl px-4 py-2.5 border border-red-500/20">
           {errorMessage}
         </p>
-      )}
+      ) : null}
 
       {/* ── Кнопка ─────────────────────────────────────────────────── */}
-      <button
+      <Button
         type="button"
+        variant="primary"
+        size="lg"
+        fullWidth
         onClick={handleSubmit}
-        disabled={!canSubmit || isSubmitting}
-        className={[
-          'w-full flex items-center justify-center gap-2 py-3.5 rounded-xl',
-          'bg-blue-600 text-white font-semibold text-sm',
-          'hover:bg-blue-500 transition-colors',
-          'disabled:opacity-50 disabled:cursor-not-allowed',
-        ].join(' ')}
+        disabled={!canSubmit}
+        isLoading={isSubmitting}
+        loadingLabel="Создание…"
       >
-        {isSubmitting
-          ? <><Loader2 size={15} className="animate-spin" /> Создание…</>
-          : 'Создать заявку'
-        }
-      </button>
+        Создать заявку
+      </Button>
     </div>
   )
 }

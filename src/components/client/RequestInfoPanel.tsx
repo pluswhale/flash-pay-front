@@ -4,30 +4,48 @@
  * Shows:
  *  - Request summary (direction, amount, currency, payout, location)
  *  - Live status badge (kept fresh via WS through useRequestDetailViewModel)
- *  - Mini chat preview (last 3 messages via useChatViewModel)
- *  - "Open Chat" button → navigates to full chat page
+ *  - Embedded live chat — user can send messages without leaving the page
+ *  - "Open Full Chat" button → navigates to /app/requests/:id
+ *
+ * Chat state (live messages, typing) is owned by chatStore and persists across
+ * the embedded ↔ full-chat navigation so no messages are lost on route change.
  */
-import { useNavigate }                   from 'react-router-dom'
-import { ArrowRight, MessageCircle, Loader2, Clock } from 'lucide-react'
-import { useRequestDetailViewModel }     from '../../hooks/view-models/useRequestViewModel'
-import { useChatViewModel }              from '../../hooks/view-models/useChatViewModel'
-import { RequestStatusBadge }            from '../request/RequestStatusBadge'
-import { SenderType }                    from '../../types/api'
-import type { OtcRequest }               from '../../types/api'
+import { useNavigate }               from 'react-router-dom'
+import { ArrowRight, Maximize2, Clock } from 'lucide-react'
+import { useRequestDetailViewModel } from '../../hooks/view-models/useRequestViewModel'
+import { useChatViewModel }          from '../../hooks/view-models/useChatViewModel'
+import { RequestStatusBadge }        from '../request/RequestStatusBadge'
+import { ChatContainer }             from '../chat/ChatContainer'
+import { useSessionStore }           from '../../store/sessionStore'
+import type { OtcRequest }           from '../../types/api'
+
+const CLIENT_QUICK_REPLIES = [
+  'Отправил оплату',
+  'Жду реквизиты',
+  'Получил средства',
+  'Нужна помощь',
+]
 
 interface Props {
   request: OtcRequest
 }
 
+// AGENTS.md 6.3 — hoisted static gradient accent bar (no props, never changes)
+const topAccentBar = (
+  <div
+    aria-hidden
+    className="absolute inset-x-0 top-0 h-[2px] bg-gradient-brand"
+  />
+)
+
 export function RequestInfoPanel({ request: initial }: Props) {
-  const navigate = useNavigate()
+  const navigate    = useNavigate()
+  const currentUser = useSessionStore((s) => s.user)
 
-  // Keep status live via WS; fall back to initial data while loading
   const detail = useRequestDetailViewModel(initial.id)
-  const chat   = useChatViewModel(initial.id)
+  const chat   = useChatViewModel(initial.id, 'embedded')
 
-  const req            = detail.request ?? initial
-  const recentMessages = chat.messages.slice(-3)
+  const req = detail.request ?? initial
 
   const amount = Number(req.amount).toLocaleString('ru-RU', {
     minimumFractionDigits: 0,
@@ -44,29 +62,34 @@ export function RequestInfoPanel({ request: initial }: Props) {
   return (
     <div className="flex flex-col gap-3">
 
-      {/* ── Request summary ──────────────────────────────────────────── */}
-      <div className="rounded-2xl border dark:border-white/10 border-gray-200 dark:bg-white/5 bg-white p-5">
+      {/* ── Request summary ──────────────────────────────────────────────── */}
+      {/* overflow-hidden so the absolute top accent bar is clipped by rounded-2xl */}
+      <div className="glass rounded-2xl p-5 overflow-hidden relative">
 
-        {/* Direction + status row */}
+        {/* 2px brand-to-purple gradient line anchored to the top edge */}
+        {topAccentBar}
+
         <div className="flex items-start justify-between gap-3 mb-3">
-          <div className="flex items-center gap-2 font-bold dark:text-white text-gray-900 text-sm">
+          <div className="flex items-center gap-2 font-bold text-primary text-sm">
             <span>{req.directionFrom}</span>
-            <ArrowRight size={13} className="dark:text-gray-500 text-gray-400 shrink-0" />
+            <ArrowRight size={13} className="text-brand shrink-0" />
             <span>{req.directionTo}</span>
           </div>
           <RequestStatusBadge status={req.status} />
         </div>
 
-        {/* Details */}
         <div className="space-y-1.5 text-xs">
           <Row label="Сумма"   value={`${amount} ${req.currency}`} />
-          {req.payoutMethod && <Row label="Способ" value={req.payoutMethod} />}
-          {(req.country || req.city) && (
+          {req.payoutMethod !== null && req.payoutMethod !== undefined ? (
+            <Row label="Способ" value={req.payoutMethod} />
+          ) : null}
+          {(req.country !== null && req.country !== undefined) ||
+           (req.city   !== null && req.city   !== undefined) ? (
             <Row
               label="Локация"
               value={[req.country, req.city].filter(Boolean).join(', ')}
             />
-          )}
+          ) : null}
           <Row
             label="Создана"
             value={createdAt}
@@ -74,89 +97,53 @@ export function RequestInfoPanel({ request: initial }: Props) {
           />
         </div>
 
-        {req.comment && (
-          <p className="mt-3 text-xs dark:text-gray-500 text-gray-400 italic border-t dark:border-white/8 border-gray-100 pt-3">
+        {req.comment !== null && req.comment !== undefined ? (
+          <p className="mt-3 text-xs text-muted italic border-t dark:border-white/8 border-gray-100 pt-3">
             {req.comment}
           </p>
-        )}
+        ) : null}
       </div>
 
-      {/* ── Mini chat ────────────────────────────────────────────────── */}
-      <div className="rounded-2xl border dark:border-white/10 border-gray-200 dark:bg-white/5 bg-white overflow-hidden">
+      {/* ── Embedded chat ─────────────────────────────────────────────────── */}
+      <div className="glass rounded-2xl overflow-hidden flex flex-col">
 
-        {/* Chat header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b dark:border-white/8 border-gray-100">
-          <div className="flex items-center gap-2">
-            <MessageCircle size={13} className="text-blue-500" />
-            <span className="text-xs font-semibold dark:text-gray-300 text-gray-700">
-              Чат с оператором
-            </span>
-          </div>
-          {chat.isTyping && (
-            <span className="text-[10px] dark:text-blue-400 text-blue-500 animate-pulse font-medium">
-              печатает…
-            </span>
-          )}
-        </div>
-
-        {/* Messages preview */}
-        <div className="px-4 py-3 min-h-[88px] flex flex-col justify-center">
-          {chat.isLoading ? (
-            <div className="flex items-center justify-center py-2">
-              <Loader2 size={16} className="animate-spin dark:text-gray-600 text-gray-400" />
-            </div>
-          ) : recentMessages.length === 0 ? (
-            <p className="text-xs dark:text-gray-600 text-gray-400 text-center">
-              Сообщений пока нет — оператор скоро напишет
-            </p>
-          ) : (
-            <div className="flex flex-col gap-2">
-              {recentMessages.map((msg) => {
-                const isClient = msg.senderType === SenderType.CLIENT
-                const isSystem = msg.senderType === SenderType.SYSTEM
-                return (
-                  <div
-                    key={msg.id}
-                    className={`flex ${isClient ? 'justify-end' : 'justify-start'}`}
-                  >
-                    <div
-                      className={[
-                        'max-w-[85%] px-3 py-1.5 rounded-xl text-xs leading-relaxed',
-                        isSystem
-                          ? 'w-full max-w-full text-center dark:bg-white/5 bg-gray-100 dark:text-gray-500 text-gray-400 italic'
-                          : isClient
-                            ? 'dark:bg-blue-600/25 bg-blue-50 dark:text-blue-200 text-blue-800 rounded-br-sm'
-                            : 'dark:bg-white/8 bg-gray-50 border dark:border-white/8 border-gray-200 dark:text-gray-300 text-gray-700 rounded-bl-sm',
-                      ].join(' ')}
-                    >
-                      {msg.content}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* CTA */}
-        <div className="px-4 pb-4">
+        {/* Chat header — subtle brand gradient left-to-transparent tint */}
+        <div className="flex items-center justify-between px-4 py-3 border-b dark:border-white/8 border-gray-100 shrink-0
+                        bg-gradient-to-r from-brand/[0.05] to-transparent dark:from-brand/[0.08] dark:to-transparent">
+          <span className="text-xs font-semibold text-secondary">
+            Чат с оператором
+          </span>
           <button
             type="button"
             onClick={() => navigate(`/app/requests/${req.id}`)}
-            className={[
-              'w-full flex items-center justify-center gap-2 py-2.5 rounded-xl',
-              'bg-blue-600 text-white text-xs font-semibold',
-              'hover:bg-blue-500 transition-colors',
-            ].join(' ')}
+            className="flex items-center gap-1.5 text-xs text-brand hover:text-brand-purple transition-colors font-medium"
           >
-            <MessageCircle size={13} />
-            Открыть чат
+            <Maximize2 size={12} />
+            Открыть полный чат
           </button>
         </div>
+
+        {/* Chat body — fixed height so the panel never overflows the viewport.
+            ChatContainer is flex-col h-full with MessageList (flex-1 overflow-y-auto)
+            + ChatInput (shrink-0) — works correctly inside a fixed-height parent. */}
+        <div className="h-72 flex flex-col min-h-0">
+          <ChatContainer
+            messages={chat.messages}
+            isLoading={chat.isLoading}
+            isTyping={chat.isTyping}
+            currentUserId={currentUser?.id}
+            onSend={chat.sendMessage}
+            onTyping={chat.sendTyping}
+            quickReplies={CLIENT_QUICK_REPLIES}
+          />
+        </div>
+
       </div>
     </div>
   )
 }
+
+// ── Internal helper ────────────────────────────────────────────────────────────
 
 function Row({
   label,
@@ -169,11 +156,11 @@ function Row({
 }) {
   return (
     <div className="flex items-center justify-between gap-2">
-      <span className="flex items-center gap-1 dark:text-gray-500 text-gray-400">
+      <span className="flex items-center gap-1 text-muted">
         {icon}
         {label}
       </span>
-      <span className="font-medium dark:text-gray-300 text-gray-700 text-right">{value}</span>
+      <span className="font-medium text-secondary text-right">{value}</span>
     </div>
   )
 }

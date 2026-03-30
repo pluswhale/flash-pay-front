@@ -4,7 +4,8 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci
+# Change to npm ci --no-audit --no-fund to avoid warnings
+RUN npm install --omit=dev --legacy-peer-deps
 
 COPY . .
 RUN npm run build

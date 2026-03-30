@@ -36,7 +36,7 @@ export function OperatorsPage() {
                 className="rounded-xl border dark:border-white/10 border-gray-200 dark:bg-white/5 bg-white p-4 flex items-center gap-4"
               >
                 <div className="w-10 h-10 rounded-full bg-violet-600/20 flex items-center justify-center text-violet-400 font-semibold text-sm shrink-0">
-                  {op.phone.slice(-2)}
+                  {op?.phone?.slice(-2)}
                 </div>
 
                 <div className="flex-1 min-w-0">

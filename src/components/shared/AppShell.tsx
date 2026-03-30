@@ -60,9 +60,9 @@ export function AppShell({ children }: Props) {
   }
 
   return (
-    <div className="min-h-screen flex flex-col dark:bg-[#060d1f] bg-gray-50">
+    <div className="min-h-screen flex flex-col bg-app">
       {/* ── Top nav ──────────────────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-50 dark:bg-[#060d1f]/95 bg-white/95 backdrop-blur-sm border-b dark:border-white/10 border-gray-200">
+      <header className="sticky top-0 z-50 dark:bg-surface-0/90 bg-white/95 backdrop-blur-md border-b dark:border-white/8 border-gray-200/80">
         <div className="max-w-5xl mx-auto px-4 h-14 flex items-center gap-4">
           {/* Brand */}
           <Link to={homeForRole(user?.role)} className="flex items-center gap-2 shrink-0">

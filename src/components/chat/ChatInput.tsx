@@ -39,23 +39,31 @@ export function ChatInput({ onSend, onTyping, disabled, quickReplies }: Props) {
   }
 
   return (
-    <div className="border-t dark:border-white/10 border-gray-200 dark:bg-[#0d1526] bg-white">
+    // Container: subtle backdrop blur so it feels glassy above the message list
+    <div className="border-t dark:border-white/8 border-gray-200
+                    dark:bg-surface-1/95 bg-white/95 backdrop-blur-sm">
+
       {/* ── Quick reply chips ─────────────────────────────────────────────── */}
-      {quickReplies && quickReplies.length > 0 && (
-        <div className="px-4 pt-2 pb-1 flex flex-wrap gap-1.5">
+      {quickReplies !== undefined && quickReplies.length > 0 ? (
+        <div className="px-4 pt-2.5 pb-1 flex flex-wrap gap-1.5">
           {quickReplies.map((reply) => (
             <button
               key={reply}
               type="button"
               disabled={disabled}
               onClick={() => { onSend(reply) }}
-              className="px-2.5 py-1 rounded-full text-xs border dark:border-blue-500/30 border-blue-300 dark:text-blue-400 text-blue-600 dark:bg-blue-500/10 bg-blue-50 hover:dark:bg-blue-500/20 hover:bg-blue-100 transition-colors disabled:opacity-50"
+              className="px-2.5 py-1 rounded-full text-xs font-medium transition-colors duration-150
+                         border dark:border-brand/30 border-brand/40
+                         dark:text-brand text-blue-600
+                         dark:bg-brand/[0.08] bg-brand/[0.06]
+                         hover:dark:bg-brand/[0.16] hover:bg-brand/[0.12]
+                         disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {reply}
             </button>
           ))}
         </div>
-      )}
+      ) : null}
 
       {/* ── Input bar ─────────────────────────────────────────────────────── */}
       <form onSubmit={handleSubmit} className="flex items-end gap-2 px-4 py-3">
@@ -67,12 +75,24 @@ export function ChatInput({ onSend, onTyping, disabled, quickReplies }: Props) {
           onKeyDown={handleKeyDown}
           disabled={disabled}
           placeholder="Напишите сообщение… (Enter — отправить)"
-          className="flex-1 resize-none rounded-xl border dark:border-white/10 border-gray-200 dark:bg-white/5 bg-gray-50 px-4 py-2.5 text-sm dark:text-white text-gray-900 dark:placeholder-gray-500 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 max-h-[120px] overflow-y-auto"
+          className="flex-1 resize-none rounded-xl text-sm max-h-[120px] overflow-y-auto
+                     px-4 py-2.5
+                     input-surface
+                     focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40
+                     transition-shadow duration-150
+                     dark:placeholder-white/30 placeholder-gray-400"
         />
+
+        {/* Send button — brand gradient with glow on hover */}
         <button
           type="submit"
           disabled={disabled || !value.trim()}
-          className="shrink-0 flex items-center justify-center w-10 h-10 rounded-xl bg-blue-600 text-white hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="shrink-0 flex items-center justify-center w-10 h-10 rounded-xl
+                     bg-gradient-brand text-white
+                     shadow-[0_2px_10px_rgba(91,140,255,0.30)]
+                     hover:brightness-110 hover:shadow-[0_4px_18px_rgba(91,140,255,0.45)]
+                     transition-all duration-200
+                     disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none"
         >
           <SendHorizonal size={16} />
         </button>
