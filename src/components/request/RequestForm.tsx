@@ -2,9 +2,10 @@
  * Pure component — single-page OTC request form. Russian labels.
  */
 import { useState } from 'react'
-import { ArrowRight, ChevronDown, MapPin, MessageSquare } from 'lucide-react'
+import { ArrowRight, MapPin, MessageSquare } from 'lucide-react'
 import type { CreateRequestDto } from '../../types/api'
 import { Button } from '../../ui'
+import { GlassSelect, type SelectOption } from '../../shared/ui/GlassSelect'
 
 interface Props {
   onSubmit:     (data: CreateRequestDto) => void
@@ -35,16 +36,15 @@ const CURRENCIES = ['USDT', 'USD', 'EUR', 'RUB', 'THB', 'AED', 'CNY']
 
 const PHYSICAL_METHODS = new Set(['Банкомат', 'Наличными (курьер)'])
 
+// Module-level option arrays — stable references (AGENTS.md 5.4)
+const CURRENCY_OPTIONS: SelectOption[] = CURRENCIES.map((c) => ({ value: c, label: c }))
+const PAYOUT_OPTIONS: SelectOption[]   = PAYOUT_METHODS.map((m) => ({ value: m, label: m }))
+
 // Shared control styles using design-system tokens
 const INPUT_CLS =
   'px-4 py-3 rounded-xl input-surface ' +
   'focus:outline-none focus:ring-2 focus:ring-brand/40 ' +
   'transition-shadow w-full'
-
-const SELECT_CLS =
-  'appearance-none pl-4 pr-8 py-3 rounded-xl input-surface ' +
-  'focus:outline-none focus:ring-2 focus:ring-brand/40 ' +
-  'transition-shadow'
 
 const LABEL_CLS =
   'flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest ' +
@@ -124,37 +124,29 @@ export function RequestForm({ onSubmit, isSubmitting, errorMessage }: Props) {
             onChange={(e) => setAmount(e.target.value)}
             className={INPUT_CLS + ' flex-1 min-w-0'}
           />
-          <div className="relative shrink-0">
-            <select
-              value={currency}
-              onChange={(e) => setCurrency(e.target.value)}
-              className={SELECT_CLS}
-            >
-              {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
-            <ChevronDown size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-muted" />
-          </div>
+          {/* Currency selector — compact fixed-width (AGENTS.md 5.4: stable CURRENCY_OPTIONS ref) */}
+          <GlassSelect
+            options={CURRENCY_OPTIONS}
+            value={currency}
+            onChange={setCurrency}
+            className="w-[100px] shrink-0"
+          />
         </div>
       </div>
 
       {/* ── Способ получения ───────────────────────────────────────── */}
       <div>
         <p className={LABEL_CLS}>Способ получения</p>
-        <div className="relative">
-          <select
-            value={payoutMethod}
-            onChange={(e) => setPayoutMethod(e.target.value)}
-            className={SELECT_CLS + ' w-full pr-9'}
-          >
-            <option value="">Выберите способ…</option>
-            {PAYOUT_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
-          </select>
-          <ChevronDown size={13} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-muted" />
-        </div>
+        <GlassSelect
+          options={PAYOUT_OPTIONS}
+          value={payoutMethod}
+          onChange={setPayoutMethod}
+          placeholder="Выберите способ…"
+        />
       </div>
 
       {/* ── Локация (условная) ─────────────────────────────────────── */}
-      {showLocation && (
+      {showLocation ? (
         <div>
           <p className={LABEL_CLS}>
             <MapPin size={11} />
@@ -177,7 +169,7 @@ export function RequestForm({ onSubmit, isSubmitting, errorMessage }: Props) {
             />
           </div>
         </div>
-      )}
+      ) : null}
 
       {/* ── Комментарий ────────────────────────────────────────────── */}
       <div>
@@ -196,11 +188,11 @@ export function RequestForm({ onSubmit, isSubmitting, errorMessage }: Props) {
       </div>
 
       {/* ── Ошибка ─────────────────────────────────────────────────── */}
-      {errorMessage && (
+      {errorMessage !== null ? (
         <p className="text-sm text-red-400 bg-red-500/10 rounded-xl px-4 py-2.5 border border-red-500/20">
           {errorMessage}
         </p>
-      )}
+      ) : null}
 
       {/* ── Кнопка ─────────────────────────────────────────────────── */}
       <Button

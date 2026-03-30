@@ -91,8 +91,8 @@ export function RequestsPage() {
       {/* ── Main: 2-col (form left + info panel right) ───────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 mb-10">
 
-        {/* Left: Form */}
-        <div className="glass rounded-2xl p-5 sm:p-6">
+        {/* Left: Form — glass-bright is more elevated than glass, fitting for the primary action */}
+        <div className="glass-bright rounded-2xl p-5 sm:p-6">
           <p className="text-[10px] font-bold uppercase tracking-widest text-muted mb-4">
             Заявка на обмен
           </p>
@@ -128,8 +128,13 @@ export function RequestsPage() {
                 'min-h-[420px] gap-4 p-8',
               ].join(' ')}
             >
-              <div className="w-16 h-16 rounded-2xl flex items-center justify-center dark:bg-white/5 bg-gray-50 border dark:border-white/8 border-gray-200">
-                <ArrowRight size={22} className="text-muted" />
+              {/* Icon with brand gradient background */}
+              <div className="w-16 h-16 rounded-2xl flex items-center justify-center
+                              bg-gradient-to-br from-brand/[0.10] to-brand-purple/[0.07]
+                              dark:from-brand/[0.15] dark:to-brand-purple/[0.10]
+                              border dark:border-brand/20 border-brand/15
+                              shadow-[0_4px_16px_rgba(91,140,255,0.12)]">
+                <ArrowRight size={22} className="text-brand" />
               </div>
 
               <div className="space-y-1">

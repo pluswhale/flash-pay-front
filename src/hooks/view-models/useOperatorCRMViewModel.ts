@@ -50,7 +50,7 @@ export function useOperatorCRMViewModel() {
   const queue      = useOperatorQueueViewModel(filter)
   const detail     = useRequestDetailViewModel(selectedId ?? '')
   const transition = useStatusTransitionViewModel(selectedId ?? '')
-  const chat       = useChatViewModel(selectedId ?? '')
+  const chat       = useChatViewModel(selectedId ?? '', 'fullscreen')
 
   // ── Actions ──────────────────────────────────────────────────────────────────
 
